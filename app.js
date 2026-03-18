@@ -1,225 +1,228 @@
-const dashboardData = {
-  heroStats: [
-    { label: 'S&P 500 Futures', value: '+0.62%', tone: 'positive', detail: 'Risk sentiment firming into open' },
-    { label: 'US 10Y Yield', value: '4.18%', tone: 'negative', detail: '+3.4 bps after auction chatter' },
-    { label: 'Breaking Alerts', value: '06', tone: 'neutral', detail: '3 selected by you' },
-  ],
-  stocks: [
-    { ticker: 'MSFT', company: 'Microsoft', price: '$428.16', change: '+1.84%', volume: '18.3M', signal: 'AI capex momentum', tone: 'bullish' },
-    { ticker: 'NVDA', company: 'NVIDIA', price: '$911.42', change: '+2.61%', volume: '42.8M', signal: 'Semis leadership', tone: 'bullish' },
-    { ticker: 'JPM', company: 'JPMorgan Chase', price: '$198.74', change: '-0.28%', volume: '9.1M', signal: 'Yield sensitivity', tone: 'neutral' },
-    { ticker: 'XOM', company: 'Exxon Mobil', price: '$116.07', change: '+0.49%', volume: '14.6M', signal: 'Crude-linked upside', tone: 'bullish' },
-    { ticker: 'BA', company: 'Boeing', price: '$187.11', change: '-1.33%', volume: '11.9M', signal: 'Headline risk', tone: 'bearish' },
-    { ticker: 'GS', company: 'Goldman Sachs', price: '$389.08', change: '+0.22%', volume: '2.8M', signal: 'Deal pipeline', tone: 'neutral' },
-  ],
-  bonds: [
-    { name: 'US 2Y Treasury', yield: '4.61%', change: '+2.1 bps', note: 'Front-end pricing stays hawkish', tone: 'negative' },
-    { name: 'US 10Y Treasury', yield: '4.18%', change: '+3.4 bps', note: 'Auction focus and fiscal supply', tone: 'negative' },
-    { name: 'US 30Y Treasury', yield: '4.34%', change: '+1.8 bps', note: 'Long-end stable versus curve', tone: 'neutral' },
-    { name: 'IG Corp OAS', yield: '96 bps', change: '-4 bps', note: 'Credit spreads continue tightening', tone: 'positive' },
-  ],
-  futures: [
-    { symbol: 'ESM6', name: 'S&P 500', last: '5,248.25', change: '+0.62%', context: 'Large-cap equities bid' },
-    { symbol: 'NQM6', name: 'Nasdaq 100', last: '18,271.75', change: '+0.96%', context: 'Tech leadership intact' },
-    { symbol: 'CLM6', name: 'WTI Crude', last: '$81.44', change: '+0.71%', context: 'Energy demand headlines' },
-    { symbol: 'ZNM6', name: '10Y Note', last: '109-18', change: '-0.19%', context: 'Higher yield pressure' },
-  ],
-  news: [
-    { source: 'Bloomberg-style wire', time: '08:12 UTC', headline: 'Mega-cap tech and brokers lift equities as treasury supply remains in focus.', detail: 'Desk summary blends sector rotation, rates repricing, and corporate updates most likely to move stock baskets.' },
-    { source: 'Reuters-style wire', time: '08:05 UTC', headline: 'Oil futures edge higher, supporting integrated energy names and transport hedging activity.', detail: 'Watch energy producers, airlines, and futures curves for second-order moves through the session.' },
-    { source: 'Rates desk note', time: '07:48 UTC', headline: 'Corporate bond spreads tighten even as the Treasury curve cheapens.', detail: 'Favors high-grade issuers and financials if macro headlines do not deteriorate.' },
-  ],
-  social: [
-    { handle: '@marketstructure', time: '2m ago', headline: 'Volume spike in NVDA, MSFT, and broad index futures suggests institutions are positioning before the open.', detail: 'Useful for stocks + futures alerting when paired with tape acceleration.' },
-    { handle: '@rateswatch', time: '9m ago', headline: 'Treasury chatter centered on long-end buyers stepping in after yields pushed above the session median.', detail: 'Relevant for bond alerts and rate-sensitive financials.' },
-    { handle: '@energyflows', time: '12m ago', headline: 'WTI futures buying renewed after refinery commentary; energy equities responding in sympathy.', detail: 'Pairs futures headlines with X sentiment to spot cross-market follow-through.' },
-  ],
-  alertOptions: [
-    { id: 'earnings', title: 'Earnings surprise alerts', summary: 'Follow pre-market and post-close reports for key stock names.', priority: 'High', market: 'Stocks' },
-    { id: 'rates', title: 'Treasury yield shock', summary: 'Notify when 2Y or 10Y yields move sharply and pressure equities.', priority: 'Critical', market: 'Bonds' },
-    { id: 'futures', title: 'Futures momentum break', summary: 'Flag large directional moves in equity, crude, and note futures.', priority: 'High', market: 'Futures' },
-    { id: 'social', title: 'X sentiment acceleration', summary: 'Highlight unusual posting velocity from selected market accounts.', priority: 'Medium', market: 'News/X' },
-  ],
+const state = {
+  payload: null,
+  selectedAlerts: new Set(),
 };
 
-const selected = new Set(['rates', 'futures']);
+const elements = {
+  providerGrid: document.getElementById('providerGrid'),
+  lastUpdated: document.getElementById('lastUpdated'),
+  statusBanner: document.getElementById('statusBanner'),
+  heroStats: document.getElementById('heroStats'),
+  stockTable: document.getElementById('stockTable'),
+  bondGrid: document.getElementById('bondGrid'),
+  futuresGrid: document.getElementById('futuresGrid'),
+  newsFeed: document.getElementById('newsFeed'),
+  socialFeed: document.getElementById('socialFeed'),
+  alertList: document.getElementById('alertList'),
+  refreshButton: document.getElementById('refreshButton'),
+};
 
-const heroStats = document.getElementById('heroStats');
-const stockTable = document.getElementById('stockTable');
-const bondGrid = document.getElementById('bondGrid');
-const futuresGrid = document.getElementById('futuresGrid');
-const newsFeed = document.getElementById('newsFeed');
-const socialFeed = document.getElementById('socialFeed');
-const alertList = document.getElementById('alertList');
-const selectedAlerts = document.getElementById('selectedAlerts');
-const clearAlerts = document.getElementById('clearAlerts');
+async function loadDashboard() {
+  setStatus('loading', 'Loading live market stack…');
 
-function toneClass(value) {
-  if (value === 'positive' || value === 'bullish') return 'positive';
-  if (value === 'negative' || value === 'bearish') return 'negative';
-  return '';
-}
+  try {
+    const response = await fetch('/api/dashboard');
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.message || payload.error || 'Unable to load dashboard');
+    }
 
-function renderHeroStats() {
-  heroStats.innerHTML = dashboardData.heroStats
-    .map(
-      (stat) => `
-        <article class="stat-card">
-          <p class="section-label">${stat.label}</p>
-          <div class="value ${toneClass(stat.tone)}">${stat.value}</div>
-          <p class="muted small">${stat.detail}</p>
-        </article>
-      `,
-    )
-    .join('');
-}
+    state.payload = payload;
+    if (!state.selectedAlerts.size) {
+      payload.alerts.slice(0, 3).forEach((alert) => state.selectedAlerts.add(alert.title));
+    }
+    render(payload);
 
-function renderStocks() {
-  stockTable.innerHTML = dashboardData.stocks
-    .map(
-      (stock) => `
-        <tr>
-          <td class="mono">${stock.ticker}</td>
-          <td>${stock.company}</td>
-          <td class="price">${stock.price}</td>
-          <td class="price ${toneClass(stock.tone)}">${stock.change}</td>
-          <td class="mono">${stock.volume}</td>
-          <td><span class="signal ${stock.tone}">${stock.signal}</span></td>
-        </tr>
-      `,
-    )
-    .join('');
-}
-
-function renderBonds() {
-  bondGrid.innerHTML = dashboardData.bonds
-    .map(
-      (bond) => `
-        <article class="bond-card">
-          <div class="card-topline">
-            <strong>${bond.name}</strong>
-            <span class="label-tag">${bond.change}</span>
-          </div>
-          <div class="value yield ${toneClass(bond.tone)}">${bond.yield}</div>
-          <p class="muted small">${bond.note}</p>
-        </article>
-      `,
-    )
-    .join('');
-}
-
-function renderFutures() {
-  futuresGrid.innerHTML = dashboardData.futures
-    .map(
-      (future) => `
-        <article class="future-card">
-          <div class="card-topline">
-            <div>
-              <strong>${future.name}</strong>
-              <p class="muted small">${future.symbol}</p>
-            </div>
-            <span class="label-tag ${future.change.startsWith('-') ? 'negative' : 'positive'}">${future.change}</span>
-          </div>
-          <div class="value mono">${future.last}</div>
-          <p class="muted small">${future.context}</p>
-        </article>
-      `,
-    )
-    .join('');
-}
-
-function renderStories() {
-  newsFeed.innerHTML = dashboardData.news
-    .map(
-      (story) => `
-        <article class="story">
-          <p class="story-meta">${story.source} • ${story.time}</p>
-          <h4>${story.headline}</h4>
-          <p class="muted small">${story.detail}</p>
-        </article>
-      `,
-    )
-    .join('');
-
-  socialFeed.innerHTML = dashboardData.social
-    .map(
-      (story) => `
-        <article class="social-card">
-          <p class="social-meta">${story.handle} • ${story.time}</p>
-          <h4>${story.headline}</h4>
-          <p class="muted small">${story.detail}</p>
-        </article>
-      `,
-    )
-    .join('');
-}
-
-function renderAlertSelector() {
-  alertList.innerHTML = dashboardData.alertOptions
-    .map(
-      (alert) => `
-        <label class="alert-option ${selected.has(alert.id) ? 'active' : ''}">
-          <input type="checkbox" data-alert-id="${alert.id}" ${selected.has(alert.id) ? 'checked' : ''} />
-          <span>
-            <strong>${alert.title}</strong>
-            <p class="muted small">${alert.summary}</p>
-            <span class="label-tag">${alert.market} • ${alert.priority}</span>
-          </span>
-        </label>
-      `,
-    )
-    .join('');
-
-  alertList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-    input.addEventListener('change', (event) => {
-      const id = event.target.dataset.alertId;
-      if (event.target.checked) {
-        selected.add(id);
-      } else {
-        selected.delete(id);
-      }
-      renderAlertSelector();
-      renderSelectedAlerts();
-    });
-  });
-}
-
-function renderSelectedAlerts() {
-  const activeAlerts = dashboardData.alertOptions.filter((alert) => selected.has(alert.id));
-
-  if (!activeAlerts.length) {
-    selectedAlerts.className = 'selected-alerts empty-state';
-    selectedAlerts.innerHTML = 'Select alert presets from the left rail to pin them here.';
-    return;
+    const liveProviders = Object.values(payload.providers).filter((provider) => provider.connected).length;
+    const totalProviders = Object.values(payload.providers).length;
+    const statusMode = liveProviders === totalProviders ? 'live' : 'warning';
+    setStatus(statusMode, `${liveProviders}/${totalProviders} providers connected. ${payload.errors.length ? 'Some panels are using labeled fallback data.' : 'All configured feeds are live.'}`);
+  } catch (error) {
+    setStatus('warning', `Dashboard failed to refresh: ${error.message}`);
   }
+}
 
-  selectedAlerts.className = 'selected-alerts';
-  selectedAlerts.innerHTML = activeAlerts
-    .map(
-      (alert) => `
-        <article class="alert-card">
-          <div class="card-topline">
-            <strong>${alert.title}</strong>
-            <span class="label-tag">${alert.priority}</span>
-          </div>
-          <p class="muted small">${alert.summary}</p>
-          <p class="story-meta">Coverage: ${alert.market}</p>
-        </article>
-      `,
-    )
+function render(payload) {
+  elements.lastUpdated.textContent = `Updated ${new Date(payload.meta.generatedAt).toLocaleString()}`;
+  renderProviders(payload.providers);
+  renderHero(payload);
+  renderStocks(payload.stocks);
+  renderBonds(payload.bonds);
+  renderFutures(payload.futures);
+  renderNews(payload.news);
+  renderSocial(payload.social);
+  renderAlerts(payload.alerts);
+}
+
+function renderProviders(providers) {
+  elements.providerGrid.innerHTML = Object.entries(providers)
+    .map(([key, provider]) => `
+      <article class="provider-card ${provider.connected ? 'connected' : 'disconnected'}">
+        <div class="card-topline">
+          <strong>${titleize(key)}</strong>
+          <span class="label-tag">${provider.connected ? 'LIVE' : 'SETUP NEEDED'}</span>
+        </div>
+        <p>${provider.name}</p>
+        <p class="muted small">${provider.detail || (provider.connected ? 'Streaming market data into the dashboard.' : 'No provider detail available.')}</p>
+      </article>
+    `)
     .join('');
 }
 
-clearAlerts.addEventListener('click', () => {
-  selected.clear();
-  renderAlertSelector();
-  renderSelectedAlerts();
-});
+function renderHero(payload) {
+  const tenYear = payload.bonds.find((bond) => bond.seriesId === 'DGS10') || payload.bonds[0];
+  const topStock = [...payload.stocks].sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))[0];
+  const topFuture = [...payload.futures].sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))[0];
 
-renderHeroStats();
-renderStocks();
-renderBonds();
-renderFutures();
-renderStories();
-renderAlertSelector();
-renderSelectedAlerts();
+  const stats = [
+    {
+      label: 'Lead stock',
+      value: topStock ? `${topStock.ticker} ${formatSigned(topStock.changePercent, '%')}` : 'N/A',
+      detail: topStock ? `${formatCurrency(topStock.price)} • ${topStock.source}` : 'No stock data',
+      tone: topStock?.changePercent >= 0 ? 'positive' : 'negative',
+    },
+    {
+      label: 'US 10Y',
+      value: tenYear ? `${formatNumber(tenYear.value, 2)}${tenYear.unit}` : 'N/A',
+      detail: tenYear ? `${formatSigned(tenYear.change, ' pts')} • ${tenYear.source}` : 'No yield data',
+      tone: tenYear?.change >= 0 ? 'negative' : 'positive',
+    },
+    {
+      label: 'Lead future',
+      value: topFuture ? `${topFuture.symbol} ${formatSigned(topFuture.changePercent, '%')}` : 'N/A',
+      detail: topFuture ? `${formatCurrency(topFuture.price)} • ${topFuture.source}` : 'No futures data',
+      tone: topFuture?.changePercent >= 0 ? 'positive' : 'negative',
+    },
+  ];
+
+  elements.heroStats.innerHTML = stats
+    .map((stat) => `
+      <article class="stat-card">
+        <p class="section-label">${stat.label}</p>
+        <div class="value ${stat.tone}">${stat.value}</div>
+        <p class="muted small">${stat.detail}</p>
+      </article>
+    `)
+    .join('');
+}
+
+function renderStocks(stocks) {
+  elements.stockTable.innerHTML = stocks
+    .map((stock) => `
+      <tr>
+        <td class="mono">${stock.ticker}</td>
+        <td>${formatCurrency(stock.price)}</td>
+        <td class="${stock.changePercent >= 0 ? 'positive' : 'negative'}">${formatSigned(stock.changePercent, '%')}</td>
+        <td>${formatCurrency(stock.low)} - ${formatCurrency(stock.high)}</td>
+        <td>${stock.source}</td>
+      </tr>
+    `)
+    .join('');
+}
+
+function renderBonds(bonds) {
+  elements.bondGrid.innerHTML = bonds
+    .map((bond) => `
+      <article class="bond-card">
+        <div class="card-topline">
+          <strong>${bond.name}</strong>
+          <span class="label-tag">${bond.asOf || 'Latest'}</span>
+        </div>
+        <div class="value ${bond.change <= 0 ? 'positive' : 'negative'}">${formatNumber(bond.value, 2)}${bond.unit}</div>
+        <p class="muted small">${formatSigned(bond.change, ' pts')} • ${bond.source}</p>
+      </article>
+    `)
+    .join('');
+}
+
+function renderFutures(futures) {
+  elements.futuresGrid.innerHTML = futures
+    .map((future) => `
+      <article class="future-card">
+        <div class="card-topline">
+          <div>
+            <strong>${future.name}</strong>
+            <p class="muted small">${future.symbol}</p>
+          </div>
+          <span class="label-tag ${future.changePercent >= 0 ? 'positive' : 'negative'}">${formatSigned(future.changePercent, '%')}</span>
+        </div>
+        <div class="value">${formatCurrency(future.price)}</div>
+        <p class="muted small">${formatCurrency(future.dayLow)} - ${formatCurrency(future.dayHigh)} • ${future.source}</p>
+      </article>
+    `)
+    .join('');
+}
+
+function renderNews(news) {
+  elements.newsFeed.innerHTML = news
+    .map((story) => `
+      <article class="story">
+        <p class="story-meta">${story.source} • ${formatDate(story.publishedAt)}</p>
+        <h4>${story.headline}</h4>
+        <p class="muted small">${story.summary || ''}</p>
+        <a class="label-tag" href="${story.url}" target="_blank" rel="noreferrer">Open source</a>
+      </article>
+    `)
+    .join('');
+}
+
+function renderSocial(social) {
+  elements.socialFeed.innerHTML = social
+    .map((post) => `
+      <article class="social-card">
+        <p class="social-meta">${post.handle} • ${formatDate(post.createdAt)}</p>
+        <h4>${post.author}</h4>
+        <p class="muted small">${post.text}</p>
+        <p class="story-meta">Likes ${post.metrics.like_count || 0} • Reposts ${post.metrics.retweet_count || 0}</p>
+        <a class="label-tag" href="${post.url}" target="_blank" rel="noreferrer">View on X</a>
+      </article>
+    `)
+    .join('');
+}
+
+function renderAlerts(alerts) {
+  elements.alertList.innerHTML = alerts
+    .map((alert) => `
+      <label class="alert-card">
+        <div class="card-topline">
+          <strong>${alert.title}</strong>
+          <span class="label-tag">${alert.priority}</span>
+        </div>
+        <p class="muted small">${alert.summary}</p>
+        <p class="story-meta">${alert.market}</p>
+      </label>
+    `)
+    .join('');
+}
+
+function setStatus(mode, text) {
+  elements.statusBanner.className = `status-banner ${mode}`;
+  elements.statusBanner.textContent = text;
+}
+
+function titleize(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: value >= 1000 ? 0 : 2 }).format(Number(value || 0));
+}
+
+function formatNumber(value, digits = 2) {
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Number(value || 0));
+}
+
+function formatSigned(value, suffix = '') {
+  const numeric = Number(value || 0);
+  return `${numeric >= 0 ? '+' : ''}${numeric.toFixed(2)}${suffix}`;
+}
+
+function formatDate(value) {
+  if (!value) return 'Latest';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+elements.refreshButton.addEventListener('click', loadDashboard);
+loadDashboard();
+setInterval(loadDashboard, 60000);
