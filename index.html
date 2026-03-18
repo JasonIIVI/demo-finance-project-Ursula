@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terminal Finance Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar panel">
+        <div>
+          <p class="eyebrow">Market Scope</p>
+          <h1>Terminal Finance</h1>
+          <p class="muted">
+            Bloomberg-inspired command center focused on company stocks, rates, bonds, and futures.
+          </p>
+        </div>
+
+        <div class="sidebar-section">
+          <p class="section-label">Coverage</p>
+          <div class="chip-row">
+            <span class="chip active">Stocks</span>
+            <span class="chip active">Bonds</span>
+            <span class="chip active">Futures</span>
+            <span class="chip disabled">Forex</span>
+            <span class="chip disabled">Crypto</span>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="section-heading-row">
+            <p class="section-label">Alert presets</p>
+            <span class="muted small">Choose to follow</span>
+          </div>
+          <div id="alertList" class="alert-list"></div>
+        </div>
+
+        <div class="sidebar-section">
+          <p class="section-label">Desk notes</p>
+          <ul class="desk-notes">
+            <li>Live price tape and watchlist for large-cap stocks.</li>
+            <li>Government and corporate bond yield monitoring.</li>
+            <li>Futures board for equity, energy, and rates contracts.</li>
+            <li>News flow blended from financial wires and X/Twitter signals.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="main-grid">
+        <section class="hero panel">
+          <div>
+            <p class="eyebrow">Live market command</p>
+            <h2>Track market-moving headlines, yields, and contracts in one place.</h2>
+            <p class="muted">
+              The dashboard prioritizes the instruments you asked for, highlights breaking catalysts,
+              and lets you choose which alerts stay pinned to the terminal.
+            </p>
+          </div>
+          <div class="hero-stats" id="heroStats"></div>
+        </section>
+
+        <section class="panel market-overview">
+          <div class="section-heading-row">
+            <div>
+              <p class="section-label">Company stocks</p>
+              <h3>Watchlist + price action</h3>
+            </div>
+            <span class="live-pill">Live tape</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Company</th>
+                  <th>Price</th>
+                  <th>Change</th>
+                  <th>Volume</th>
+                  <th>Signal</th>
+                </tr>
+              </thead>
+              <tbody id="stockTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel rates-board">
+          <div class="section-heading-row">
+            <div>
+              <p class="section-label">Bonds</p>
+              <h3>Rates and spread monitor</h3>
+            </div>
+            <span class="muted small">Treasury + corporate</span>
+          </div>
+          <div class="bond-grid" id="bondGrid"></div>
+        </section>
+
+        <section class="panel futures-board">
+          <div class="section-heading-row">
+            <div>
+              <p class="section-label">Futures</p>
+              <h3>Contract board</h3>
+            </div>
+            <span class="muted small">Cross-asset contracts</span>
+          </div>
+          <div class="futures-grid" id="futuresGrid"></div>
+        </section>
+
+        <section class="panel news-panel">
+          <div class="section-heading-row">
+            <div>
+              <p class="section-label">Market intelligence</p>
+              <h3>News and X/Twitter radar</h3>
+            </div>
+            <span class="muted small">Filtered for stocks, bonds, futures</span>
+          </div>
+          <div class="news-layout">
+            <div>
+              <p class="subhead">Financial wire feed</p>
+              <div id="newsFeed" class="story-list"></div>
+            </div>
+            <div>
+              <p class="subhead">X signal feed</p>
+              <div id="socialFeed" class="story-list social"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel alerts-panel">
+          <div class="section-heading-row">
+            <div>
+              <p class="section-label">Priority alerts</p>
+              <h3>Followed catalysts</h3>
+            </div>
+            <button id="clearAlerts" class="ghost-button">Clear selections</button>
+          </div>
+          <div id="selectedAlerts" class="selected-alerts empty-state">
+            Select alert presets from the left rail to pin them here.
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
